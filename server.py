@@ -65,13 +65,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     raise ValueError(f"Unknown tool: {name}")
 
 # 启动HTTP服务
-if __name__ == "__main__":
-    import uvicorn
-    from starlette.applications import Starlette
-    from starlette.routing import Route
-    from starlette.responses import Response
-
-   async def handle_sse(request):
+async def handle_sse(request):
     from mcp.server.sse import SseServerTransport
     from starlette.responses import Response
     transport = SseServerTransport("/messages")
@@ -87,9 +81,14 @@ if __name__ == "__main__":
         )
     return Response(content="", headers={"Content-Type": "text/event-stream"})
 
+if __name__ == "__main__":
+    import uvicorn
+    from starlette.applications import Starlette
+    from starlette.routing import Route
+
     starlette_app = Starlette(routes=[
         Route("/sse", handle_sse),
     ])
 
     port = int(os.environ.get("PORT", 8000))
-uvicorn.run(starlette_app, host="0.0.0.0", port=port)
+    uvicorn.run(starlette_app, host="0.0.0.0", port=port)
