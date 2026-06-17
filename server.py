@@ -64,11 +64,17 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     raise ValueError(f"Unknown tool: {name}")
 
 if __name__ == "__main__":
-    import asyncio
-    from mcp.server.stdio import stdio_server
-    
-    async def main():
-        async with stdio_server(app) as (read_stream, write_stream):
-            await app.run(read_stream, write_stream, app.create_initialization_options())
-    
-    asyncio.run(main())
+    import uvicorn
+    from mcp.server.sse import SseServerTransport
+    from starlette.applications import Starlette
+    from starlette.routing import Route
+
+    async def handle_sse(request):
+        async with SseServerTransport("/messages") as transport:
+            await app.run(transport.read_stream, transport.write_stream, app.create_initialization_options())
+
+    starlette_app = Starlette(routes=[
+        Route("/sse", handle_sse),
+    ])
+
+    uvicorn.run(starlette_app, host="0.0.0.0", port=8000)
