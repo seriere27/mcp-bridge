@@ -71,19 +71,21 @@ if __name__ == "__main__":
     from starlette.routing import Route
     from starlette.responses import Response
 
-    async def handle_sse(request):
-        from mcp.server.sse import SseServerTransport
-        transport = SseServerTransport("/messages")
-        async with transport.connect_sse(
-            request.scope,
-            request.receive,
-            request._send
-        ) as streams:
-            await app.run(
-                streams[0],
-                streams[1],
-                app.create_initialization_options()
-            )
+   async def handle_sse(request):
+    from mcp.server.sse import SseServerTransport
+    from starlette.responses import Response
+    transport = SseServerTransport("/messages")
+    async with transport.connect_sse(
+        request.scope,
+        request.receive,
+        request._send
+    ) as streams:
+        await app.run(
+            streams[0],
+            streams[1],
+            app.create_initialization_options()
+        )
+    return Response(content="", headers={"Content-Type": "text/event-stream"})
 
     starlette_app = Starlette(routes=[
         Route("/sse", handle_sse),
