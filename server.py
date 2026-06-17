@@ -74,7 +74,20 @@ if __name__ == "__main__":
             await app.run(transport.read_stream, transport.write_stream, app.create_initialization_options())
 
     starlette_app = Starlette(routes=[
-        Route("/sse", handle_sse),
+        Route("/sse", async def handle_sse(request):
+    from mcp.server.sse import SseServerTransport
+    transport = SseServerTransport("/messages")
+    
+    async with transport.connect_sse(
+        request.scope,
+        request.receive,
+        request._send
+    ) as (read_stream, write_stream):
+        await app.run(
+            read_stream,
+            write_stream,
+            app.create_initialization_options()
+        )),
     ])
 
     uvicorn.run(starlette_app, host="0.0.0.0", port=8000)
