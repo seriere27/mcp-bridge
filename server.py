@@ -66,4 +66,4 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 if __name__ == "__main__":
     import asyncio
     from mcp.server.stdio import stdio_server
-    asyncio.run(stdio_server(app))
+    asyncio.run(stdio_server(app).__anext__())
