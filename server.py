@@ -1,10 +1,11 @@
 import os
 import json
-from mcp.server import Server, NotificationOptions
-from mcp.server.models import InitializationOptions
-import mcp.types as types
-from supabase import create_client, Client
+import asyncio
 from datetime import datetime
+
+from mcp.server import Server
+import mcp.types as types
+from supabase import create_client
 
 # 初始化MCP服务器
 app = Server("mcp-bridge")
@@ -16,7 +17,7 @@ SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
 if not SUPABASE_URL or not SUPABASE_ANON_KEY:
     raise ValueError("Missing Supabase environment variables")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 @app.list_tools()
 async def list_tools() -> list[types.Tool]:
@@ -63,31 +64,29 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
     raise ValueError(f"Unknown tool: {name}")
 
+# 启动HTTP服务
 if __name__ == "__main__":
     import uvicorn
-    from mcp.server.sse import SseServerTransport
     from starlette.applications import Starlette
     from starlette.routing import Route
+    from starlette.responses import Response
 
     async def handle_sse(request):
-        async with SseServerTransport("/messages") as transport:
-            await app.run(transport.read_stream, transport.write_stream, app.create_initialization_options())
+        from mcp.server.sse import SseServerTransport
+        transport = SseServerTransport("/messages")
+        async with transport.connect_sse(
+            request.scope,
+            request.receive,
+            request._send
+        ) as streams:
+            await app.run(
+                streams[0],
+                streams[1],
+                app.create_initialization_options()
+            )
 
     starlette_app = Starlette(routes=[
-        Route("/sse", async def handle_sse(request):
-    from mcp.server.sse import SseServerTransport
-    transport = SseServerTransport("/messages")
-    
-    async with transport.connect_sse(
-        request.scope,
-        request.receive,
-        request._send
-    ) as (read_stream, write_stream):
-        await app.run(
-            read_stream,
-            write_stream,
-            app.create_initialization_options()
-        )),
+        Route("/sse", handle_sse),
     ])
 
     uvicorn.run(starlette_app, host="0.0.0.0", port=8000)
