@@ -85,10 +85,15 @@ async def handle_sse(request):
         )
     return Response(content="", headers={"Content-Type": "text/event-stream"})
 
-# 将 starlette_app 定义在顶层，使 uvicorn 可以直接导入
+# 处理 POST 消息请求
+async def handle_messages(request):
+    await transport.handle_post_message(request.scope, request.receive, request._send)
+    return Response()
+
+# 定义路由
 starlette_app = Starlette(routes=[
     Route("/sse", handle_sse),
-    Route("/messages", transport.handle_post_message, methods=["POST"]),
+    Route("/messages", handle_messages, methods=["POST"]),
 ])
 
 if __name__ == "__main__":
