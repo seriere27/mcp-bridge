@@ -6,6 +6,8 @@ from datetime import datetime
 from mcp.server import Server
 import mcp.types as types
 from supabase import create_client
+from starlette.responses import Response
+from mcp.server.sse import SseServerTransport
 
 # 初始化MCP服务器
 app = Server("mcp-bridge")
@@ -18,6 +20,9 @@ if not SUPABASE_URL or not SUPABASE_ANON_KEY:
     raise ValueError("Missing Supabase environment variables")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+# 在函数外部定义 transport，供多个路由使用
+transport = SseServerTransport("/messages")
 
 @app.list_tools()
 async def list_tools() -> list[types.Tool]:
@@ -64,11 +69,8 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
     raise ValueError(f"Unknown tool: {name}")
 
-# 启动HTTP服务
+# 处理 SSE 连接
 async def handle_sse(request):
-    from mcp.server.sse import SseServerTransport
-    from starlette.responses import Response
-    transport = SseServerTransport("/messages")
     async with transport.connect_sse(
         request.scope,
         request.receive,
@@ -81,6 +83,7 @@ async def handle_sse(request):
         )
     return Response(content="", headers={"Content-Type": "text/event-stream"})
 
+# 启动 HTTP 服务
 if __name__ == "__main__":
     import uvicorn
     from starlette.applications import Starlette
@@ -88,6 +91,7 @@ if __name__ == "__main__":
 
     starlette_app = Starlette(routes=[
         Route("/sse", handle_sse),
+        Route("/messages", transport.handle_post_message, methods=["POST"]),
     ])
 
     port = int(os.environ.get("PORT", 8000))
