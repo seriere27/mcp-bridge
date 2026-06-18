@@ -6,6 +6,8 @@ from datetime import datetime
 from mcp.server import Server
 import mcp.types as types
 from supabase import create_client
+from starlette.applications import Starlette
+from starlette.routing import Route
 from starlette.responses import Response
 from mcp.server.sse import SseServerTransport
 
@@ -21,7 +23,7 @@ if not SUPABASE_URL or not SUPABASE_ANON_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-# 在函数外部定义 transport，供多个路由使用
+# 在函数外部定义 transport
 transport = SseServerTransport("/messages")
 
 @app.list_tools()
@@ -83,16 +85,13 @@ async def handle_sse(request):
         )
     return Response(content="", headers={"Content-Type": "text/event-stream"})
 
-# 启动 HTTP 服务
+# 将 starlette_app 定义在顶层，使 uvicorn 可以直接导入
+starlette_app = Starlette(routes=[
+    Route("/sse", handle_sse),
+    Route("/messages", transport.handle_post_message, methods=["POST"]),
+])
+
 if __name__ == "__main__":
     import uvicorn
-    from starlette.applications import Starlette
-    from starlette.routing import Route
-
-    starlette_app = Starlette(routes=[
-        Route("/sse", handle_sse),
-        Route("/messages", transport.handle_post_message, methods=["POST"]),
-    ])
-
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(starlette_app, host="0.0.0.0", port=port)
